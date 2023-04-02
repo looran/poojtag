@@ -697,16 +697,24 @@ class BP(object):
         self.ocd = OCD()
         self.tap = TAP()
 
-        # open binary mode then OpenOCD mode
+        # bbio: request to enter BBIO mode
         self.ser.write(self.ocd.enter_bbio())
+        # bbio: find initial 'B'
+        while self.ser.read(1) != b'B':
+            time.sleep(0.01)
+        # bbio: read initial 'BBIO1'
+        ret = self.ser.read(4)
+        debug("XXX ret %s" % ret)
+        if ret != b'BIO1':
+            error("invalid answer from BusPirate when setting BBIO : %s" % ret)
+            sys.exit(1)
+        # ocd: request to enter OCD mode
         self.ser.write(self.ocd.enter_ocd())
+        # ocd: wait for OCD1 mode confirmation
         while True:
             ret = self.ser.read(4)
             if ret == b'BBIO':
-                ret = self.ser.read(1)
-                if ret != b'1':
-                    error("invalid answer from BusPirate: BBIO version 0x%s" % hexlify(ret))
-                    sys.exit(1)
+                self.ser.read(1) # '1'
             elif ret == b'OCD1':
                 debug("BP OCD mode confirmed")
                 break
@@ -726,6 +734,7 @@ class BP(object):
 
     def close(self):
         debug("BP exiting")
+        self._sr(self.ocd.exit())
 
     def _sr(self, data, read_count=0):
         if data:
