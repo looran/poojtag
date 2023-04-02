@@ -58,6 +58,9 @@ def bstobl_rev(bs):
     """ bit string to bit list """
     return bstobl(bs)[::-1]
 
+def bltobs(bl):
+    """ bit list to bit string """
+    return ''.join([ "%s" % x for x in bl])
 
 class TAP(object):
     """ JTAG Test Access Port """
@@ -215,10 +218,9 @@ class TAP(object):
         return s
 
     def send_seq(self, seq):
-        debug("send_seq len        %d" % len(seq))
-        debug("send_seq TDI        %s" % [s[0] for s in seq])
-        debug("send_seq TMS        %s" % [s[1] for s in seq])
-        debug("send_seq decode_TDO %s" % [s[2] for s in seq])
+        debug("send_seq        tdi %s [%d]" % (bltobs([s[0] for s in seq]), len(seq)))
+        debug("send_seq        tms %s" % bltobs([s[1] for s in seq]))
+        debug("send_seq decode_tdo %s" % bltobs([s[2] for s in seq]))
         self.last_send = seq
         # return only TDI and TDO components
         return list(map(lambda e: e[0:2], seq))
@@ -228,12 +230,12 @@ class TAP(object):
         if len(self.last_send) != len(tdo):
             error("len(last_send)=%d != len(tdo)=%d" % (len(self.last_send), len(tdo)))
             exit(1)
-        debug("recv_seq: decode_tdo=%s" % list(map(lambda s: str(s[2]), self.last_send)))
-        debug("recv_seq:        tdo=%s [%d]" % (tdo, len(tdo)))
+        debug("recv_seq decode_tdo %s [%d]" % (bltobs(list(map(lambda s: str(s[2]), self.last_send))), len(tdo)))
+        debug("recv_seq        tdo %s" % (bltobs(tdo)))
         for [tdi, tms, decode_tdo], tdo in zip(self.last_send, tdo):
             if decode_tdo:
                 out_tdo.append(tdo)
-        debug("recv_seq:    out_tdo=%s [%d]" % (out_tdo, len(out_tdo)))
+        debug("recv_seq    out_tdo %s [%d]" % (bltobs(out_tdo), len(out_tdo)))
         if len(out_tdo) == 0:
             return BitStream()
         return BitStream('0b'+''.join(out_tdo))
@@ -675,18 +677,20 @@ class OCD(object):
             sequence = sequence[8:]
         cmd_buf = pack('BBB', self.CMD_TAP_SHIFT, sequence_len >> 8, sequence_len % 2**8) + buf
         response_len = int(3 + ((len(cmd_buf) - 3) / 2))
-        debug("cmd_shift [%d] %s" % (len(cmd_buf), hexlify(cmd_buf, ' ', 1)))
-        debug("cmd_shift response_len %d" % (response_len))
+        debug("cmd_shift           %s [%d, %d]" % (hexlify(cmd_buf, ' ', 1), len(cmd_buf), response_len))
         return cmd_buf, response_len
 
     def decode_tdo(self, tdo):
         """ converts received tdo bytes into sequence of tdo boolean values """
-        debug("decode_tdo [%d] %s" % (len(tdo), hexlify(tdo, ' ', 1)))
+        debug("decode_tdo          %s [%d]" % (hexlify(tdo, ' ', 1), len(tdo)))
         bitlen = unpack('H', tdo[1:3][::-1])[0]
         bits = [ [ bit for bit in '{:08b}'.format(byte)[::-1] ] for byte in tdo[3:] ]
         sequence = list(itertools.chain.from_iterable(bits))[:bitlen]
-        debug("decode_tdo [%d] %s" % (len(sequence), sequence))
+        debug("decode_tdo          %s [%d]" % (bltobs(sequence), len(sequence)))
         return sequence
+
+    def exit(self):
+        return b'\x00'
 
 class BP(object):
     """ Communication with BusPirate """
@@ -790,7 +794,7 @@ if __name__ == "__main__":
     handler_console.setFormatter(Formatter())
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=[handler_file, handler_console])
 
-    info("starting at %s, logging to %s, using device '%s', actions: %s" % (datetime.now(), LOG, args.device, args.actions))
+    info("starting at %s, %s, logging to %s, using device '%s', actions: %s" % (datetime.now(), VERSION, LOG, args.device, args.actions))
 
     # initialize the device
     if args.device == 'pretend':
