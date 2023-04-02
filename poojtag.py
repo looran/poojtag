@@ -19,7 +19,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
-DESCRIPTION = "poojtag - pure python JTAG over BusPirate-like OCD protocol"
+VERSION = "v20230402"
+DESCRIPTION = "poojtag %s - pure python JTAG over BusPirate-like OCD protocol" % VERSION
 
 """ Data flow overview between poojtag.py classes, BusPirate and the JTAG port
 
